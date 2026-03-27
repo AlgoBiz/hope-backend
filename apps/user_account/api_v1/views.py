@@ -1,5 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from apps.user_account.api_v1.serializers import (
     RegisterSerializer,
     VerifyEmailSerializer,
@@ -21,6 +23,7 @@ from apps.user_account.utils import success_response, error_response
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
+    @swagger_auto_schema(request_body=RegisterSerializer)
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if not serializer.is_valid():
@@ -37,6 +40,7 @@ class RegisterView(APIView):
 class VerifyEmailView(APIView):
     permission_classes = [AllowAny]
 
+    @swagger_auto_schema(request_body=VerifyEmailSerializer)
     def post(self, request):
         serializer = VerifyEmailSerializer(data=request.data)
         if not serializer.is_valid():
@@ -50,6 +54,7 @@ class VerifyEmailView(APIView):
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
+    @swagger_auto_schema(request_body=LoginSerializer)
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if not serializer.is_valid():
@@ -65,6 +70,7 @@ class LoginView(APIView):
 class TokenRefreshView(APIView):
     permission_classes = [AllowAny]
 
+    @swagger_auto_schema(request_body=TokenRefreshSerializer)
     def post(self, request):
         serializer = TokenRefreshSerializer(data=request.data)
         if not serializer.is_valid():
@@ -75,6 +81,7 @@ class TokenRefreshView(APIView):
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(request_body=LogoutSerializer)
     def post(self, request):
         serializer = LogoutSerializer(data=request.data)
         if not serializer.is_valid():
@@ -85,6 +92,7 @@ class LogoutView(APIView):
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
 
+    @swagger_auto_schema(request_body=PasswordResetRequestSerializer)
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data, context={'request': request})
         if not serializer.is_valid():
@@ -98,6 +106,7 @@ class PasswordResetRequestView(APIView):
 class PasswordResetConfirmView(APIView):
     permission_classes = [AllowAny]
 
+    @swagger_auto_schema(request_body=PasswordResetConfirmSerializer)
     def post(self, request):
         serializer = PasswordResetConfirmSerializer(data=request.data)
         if not serializer.is_valid():
@@ -111,6 +120,7 @@ class PasswordResetConfirmView(APIView):
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(request_body=ChangePasswordSerializer)
     def post(self, request):
         serializer = ChangePasswordSerializer(data=request.data, context={'request': request})
         if not serializer.is_valid():
@@ -123,6 +133,7 @@ class ChangePasswordView(APIView):
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(responses={200: UserMeSerializer})
     def get(self, request):
         serializer = UserMeSerializer(request.user)
         return success_response(data=serializer.data)
@@ -131,11 +142,13 @@ class MeView(APIView):
 class ProfileUpdateView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(responses={200: ProfileSerializer})
     def get(self, request):
         profile, _ = Profile.objects.get_or_create(user=request.user)
         serializer = ProfileSerializer(profile)
         return success_response(data=serializer.data)
 
+    @swagger_auto_schema(request_body=ProfileSerializer)
     def patch(self, request):
         profile, _ = Profile.objects.get_or_create(user=request.user)
         serializer = ProfileSerializer(profile, data=request.data, partial=True)

@@ -3,6 +3,8 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.shortcuts import get_object_or_404
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 from apps.stories.models import Story, MessageThread, Message
 from apps.stories.service import increment_view_count, get_or_create_thread
@@ -211,6 +213,14 @@ class MessageThreadViewSet(viewsets.GenericViewSet):
         return success_response(data=MessageThreadDetailSerializer(thread).data)
 
     # 3. User posts a new message (creates thread on first message)
+    @swagger_auto_schema(request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        required=['story_id', 'body'],
+        properties={
+            'story_id': openapi.Schema(type=openapi.TYPE_STRING, format='uuid'),
+            'body': openapi.Schema(type=openapi.TYPE_STRING),
+        }
+    ))
     def create(self, request):
         story_id = request.data.get('story_id')
         body = request.data.get('body', '').strip()
@@ -237,6 +247,13 @@ class MessageThreadViewSet(viewsets.GenericViewSet):
         )
 
     # 4. Reply in existing thread (user or admin)
+    @swagger_auto_schema(request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        required=['body'],
+        properties={
+            'body': openapi.Schema(type=openapi.TYPE_STRING),
+        }
+    ))
     @action(detail=True, methods=['post'])
     def reply(self, request, pk=None):
         thread = get_object_or_404(self.get_queryset(), pk=pk)
