@@ -102,6 +102,12 @@ class StoryViewSet(viewsets.ModelViewSet):
         story.save(update_fields=['status'])
         return success_response(message="Story submitted for review.")
 
+    @action(detail=True, methods=['post'], url_path='view', permission_classes=[AllowAny])
+    def track_view(self, request, pk=None):
+        story = get_object_or_404(Story, pk=pk, status=Story.Status.APPROVED)
+        increment_view_count(story)
+        return success_response(message="View counted.")
+
     @action(detail=True, methods=['get'])
     def related(self, request, pk=None):
         story = self.get_object()
@@ -117,6 +123,13 @@ class StoryViewSet(viewsets.ModelViewSet):
         return success_response(data=self.get_serializer(related, many=True).data)
 
     @action(detail=True, methods=['post'], url_path='media', parser_classes=[MultiPartParser, FormParser])
+    @swagger_auto_schema(
+        operation_description="Upload image or video to a story. Use multipart/form-data.",
+        manual_parameters=[
+            openapi.Parameter('file', openapi.IN_FORM, type=openapi.TYPE_FILE, required=True),
+            openapi.Parameter('type', openapi.IN_FORM, type=openapi.TYPE_STRING, required=True, enum=['image', 'video']),
+        ]
+    )
     def upload_media(self, request, pk=None):
         story = self.get_object()
         serializer = StoryMediaUploadSerializer(data=request.data, context={'story': story})
@@ -126,6 +139,12 @@ class StoryViewSet(viewsets.ModelViewSet):
         return success_response(data=serializer.data, message="Media uploaded.", status_code=201)
 
     @action(detail=True, methods=['post'], url_path='documents', parser_classes=[MultiPartParser, FormParser])
+    @swagger_auto_schema(
+        operation_description="Upload a supporting document to a story. Use multipart/form-data.",
+        manual_parameters=[
+            openapi.Parameter('file', openapi.IN_FORM, type=openapi.TYPE_FILE, required=True),
+        ]
+    )
     def upload_document(self, request, pk=None):
         story = self.get_object()
         serializer = StoryDocumentUploadSerializer(data=request.data, context={'story': story})
@@ -133,6 +152,22 @@ class StoryViewSet(viewsets.ModelViewSet):
             return error_response(errors=serializer.errors, message="Document upload failed.")
         serializer.save()
         return success_response(data=serializer.data, message="Document uploaded.", status_code=201)
+
+    @action(detail=True, methods=['delete'], url_path='media/(?P<media_id>[^/.]+)', permission_classes=[IsAuthenticated, IsOwnerOrAdmin])
+    def delete_media(self, request, pk=None, media_id=None):
+        from apps.stories.models import StoryMedia
+        story = self.get_object()
+        media = get_object_or_404(StoryMedia, pk=media_id, story=story)
+        media.delete()
+        return success_response(message="Media deleted.")
+
+    @action(detail=True, methods=['delete'], url_path='documents/(?P<doc_id>[^/.]+)', permission_classes=[IsAuthenticated, IsOwnerOrAdmin])
+    def delete_document(self, request, pk=None, doc_id=None):
+        from apps.stories.models import StoryDocument
+        story = self.get_object()
+        doc = get_object_or_404(StoryDocument, pk=doc_id, story=story)
+        doc.delete()
+        return success_response(message="Document deleted.")
 
 
 # ── Admin Story ViewSet ───────────────────────────────────────────────────────
