@@ -100,7 +100,7 @@ class PasswordResetRequestView(APIView):
             return error_response(errors=serializer.errors, message="Request failed.")
         user = serializer.context['user']
         otp = create_otp(user, 'password_reset')
-        send_otp_email(user.email, otp.code)
+        send_otp_email(user.email, otp.code, purpose='password_reset')
         return success_response(message="OTP sent to your email.")
 
 

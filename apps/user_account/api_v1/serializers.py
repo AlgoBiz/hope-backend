@@ -21,7 +21,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         profile.full_name = full_name
         profile.save(update_fields=['full_name'])
         otp = create_otp(user, 'email_verify')
-        send_otp_email(user.email, otp.code)
+        send_otp_email(user.email, otp.code, purpose='verify')
         return user
 
 
