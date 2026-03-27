@@ -1,3 +1,4 @@
+setuptools  # required by drf-yasg on Python 3.12+
 python-slugify  # https://github.com/un33k/python-slugify
 Pillow # https://github.com/python-pillow/Pillow
 argon2-cffi  # https://github.com/hynek/argon2_cffi
