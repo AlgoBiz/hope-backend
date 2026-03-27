@@ -121,3 +121,20 @@ class AdminLog(models.Model):
 
     def __str__(self):
         return f"{self.admin} → {self.action} [{self.target_label}]"
+
+
+class Testimonial(models.Model):
+    name = models.CharField(max_length=100)
+    role = models.CharField(max_length=100, blank=True)  # e.g. "Robust bakery business"
+    quote = models.TextField()
+    avatar_url = models.URLField(blank=True)
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'testimonials'
+        ordering = ['order', '-created_at']
+
+    def __str__(self):
+        return f"{self.name} — {self.role}"

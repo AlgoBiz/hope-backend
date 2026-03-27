@@ -1,7 +1,7 @@
 from django.contrib import admin
 from apps.stories.models import (
     Hashtag, Story, StoryMedia, StoryDocument,
-    MessageThread, Message, AdminLog,
+    MessageThread, Message, AdminLog, Testimonial,
 )
 
 
@@ -74,3 +74,11 @@ class AdminLogAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+
+@admin.register(Testimonial)
+class TestimonialAdmin(admin.ModelAdmin):
+    list_display = ['name', 'role', 'is_active', 'order', 'created_at']
+    list_editable = ['is_active', 'order']
+    search_fields = ['name', 'role', 'quote']
+    list_filter = ['is_active']

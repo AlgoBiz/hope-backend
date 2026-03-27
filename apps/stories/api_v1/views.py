@@ -6,15 +6,14 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-
-from apps.stories.models import Story, MessageThread, Message, Hashtag, AdminLog
+from apps.stories.models import Story, MessageThread, Message, Hashtag, AdminLog, Testimonial
 from apps.stories.service import increment_view_count, get_or_create_thread
 from apps.stories.api_v1.permissions import IsAdminUser, IsOwnerOrAdmin
 from apps.stories.api_v1.serializers import (
     StorySerializer, AdminStorySerializer, StoryActionSerializer,
     StoryMediaUploadSerializer, StoryDocumentUploadSerializer,
     MessageSerializer, MessageThreadDetailSerializer, MessageThreadListSerializer,
-    HashtagSerializer, AdminLogSerializer,
+    HashtagSerializer, AdminLogSerializer, TestimonialSerializer,
 )
 from apps.user_account.utils import success_response, error_response
 
@@ -443,3 +442,29 @@ class AdminDashboardView(APIView):
             "recent_stories":  list(recent_stories),
             "recent_activity": recent_activity,
         })
+
+
+# ── Testimonial ViewSet ───────────────────────────────────────────────────────
+
+class TestimonialViewSet(viewsets.ModelViewSet):
+    """
+    GET    /testimonials/       → public list (active only, no pagination)
+    POST   /testimonials/       → admin create
+    PUT    /testimonials/{id}/  → admin update
+    DELETE /testimonials/{id}/  → admin delete
+    """
+    serializer_class = TestimonialSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        if self.action == 'list':
+            return Testimonial.objects.filter(is_active=True)
+        return Testimonial.objects.all()
+
+    def get_permissions(self):
+        if self.action in ('list', 'retrieve'):
+            return [AllowAny()]
+        return [IsAuthenticated(), IsAdminUser()]
+
+    def list(self, request):
+        return success_response(data=self.get_serializer(self.get_queryset(), many=True).data)
