@@ -51,7 +51,7 @@ class StoryViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        serializer.save(user=self.request.user, status=Story.Status.PENDING)
 
     def retrieve(self, request, *args, **kwargs):
         # Public — every visit (auth or anonymous) increments view_count
