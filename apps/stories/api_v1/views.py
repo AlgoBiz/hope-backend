@@ -39,7 +39,8 @@ class StoryViewSet(viewsets.ModelViewSet):
         )
         if self.action == 'list':
             qs = qs.filter(status=Story.Status.APPROVED)
-            hashtag = self.request.query_params.get('hashtag')
+            # support ?hashtag= or ?hashtg= (both work)
+            hashtag = self.request.query_params.get('hashtag') or self.request.query_params.get('hashtg')
             if hashtag:
                 qs = qs.filter(hashtags__name__iexact=hashtag).distinct()
             featured = self.request.query_params.get('featured')
