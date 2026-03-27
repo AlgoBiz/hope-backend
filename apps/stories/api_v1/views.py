@@ -39,10 +39,11 @@ class StoryViewSet(viewsets.ModelViewSet):
         )
         if self.action == 'list':
             qs = qs.filter(status=Story.Status.APPROVED)
-            # support ?hashtag= or ?hashtg= (both work)
+            # support ?hashtag= or ?hashtg= — comma-separated, OR logic
             hashtag = self.request.query_params.get('hashtag') or self.request.query_params.get('hashtg')
             if hashtag:
-                qs = qs.filter(hashtags__name__iexact=hashtag).distinct()
+                tags = [t.strip() for t in hashtag.split(',') if t.strip()]
+                qs = qs.filter(hashtags__name__in=tags).distinct()
             featured = self.request.query_params.get('featured')
             if featured is not None:
                 qs = qs.filter(is_featured=featured.lower() == 'true')
