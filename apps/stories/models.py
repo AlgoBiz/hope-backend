@@ -90,3 +90,33 @@ class Message(models.Model):
     class Meta:
         db_table = 'messages'
         ordering = ['created_at']
+
+
+class AdminLog(models.Model):
+    class Action(models.TextChoices):
+        STORY_APPROVED  = 'story_approved',  'Story Approved'
+        STORY_REJECTED  = 'story_rejected',  'Story Rejected'
+        STORY_DELETED   = 'story_deleted',   'Story Deleted'
+        MESSAGE_SENT    = 'message_sent',    'Message Sent'
+        USER_ACTIVATED  = 'user_activated',  'User Activated'
+        USER_DEACTIVATED = 'user_deactivated', 'User Deactivated'
+        OTHER           = 'other',           'Other'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    admin = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, related_name='admin_logs'
+    )
+    action = models.CharField(max_length=30, choices=Action.choices)
+    target_type = models.CharField(max_length=50, blank=True)   # e.g. "Story", "User"
+    target_id = models.CharField(max_length=100, blank=True)    # pk of the target object
+    target_label = models.CharField(max_length=255, blank=True) # human-readable name
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'admin_logs'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.admin} → {self.action} [{self.target_label}]"

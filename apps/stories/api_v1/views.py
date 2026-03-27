@@ -1,4 +1,5 @@
 from rest_framework import viewsets
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -6,14 +7,14 @@ from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
-from apps.stories.models import Story, MessageThread, Message, Hashtag
+from apps.stories.models import Story, MessageThread, Message, Hashtag, AdminLog
 from apps.stories.service import increment_view_count, get_or_create_thread
 from apps.stories.api_v1.permissions import IsAdminUser, IsOwnerOrAdmin
 from apps.stories.api_v1.serializers import (
     StorySerializer, AdminStorySerializer, StoryActionSerializer,
     StoryMediaUploadSerializer, StoryDocumentUploadSerializer,
     MessageSerializer, MessageThreadDetailSerializer, MessageThreadListSerializer,
-    HashtagSerializer,
+    HashtagSerializer, AdminLogSerializer,
 )
 from apps.user_account.utils import success_response, error_response
 
@@ -170,6 +171,15 @@ class AdminStoryViewSet(viewsets.ReadOnlyModelViewSet):
         story.status = Story.Status.APPROVED if act == 'approve' else Story.Status.REJECTED
         story.admin_notes = notes
         story.save(update_fields=['status', 'admin_notes'])
+
+        AdminLog.objects.create(
+            admin=request.user,
+            action=AdminLog.Action.STORY_APPROVED if act == 'approve' else AdminLog.Action.STORY_REJECTED,
+            target_type='Story',
+            target_id=str(story.id),
+            target_label=story.title,
+            notes=notes,
+        )
         return success_response(message=f"Story {story.status}.")
 
 
@@ -266,6 +276,16 @@ class MessageThreadViewSet(viewsets.GenericViewSet):
         msg = Message.objects.create(thread=thread, sender=request.user, body=body)
         thread.save(update_fields=['updated_at'])
 
+        if request.user.is_admin:
+            AdminLog.objects.create(
+                admin=request.user,
+                action=AdminLog.Action.MESSAGE_SENT,
+                target_type='MessageThread',
+                target_id=str(thread.id),
+                target_label=thread.story.title,
+                notes=body[:200],
+            )
+
         return success_response(
             data=MessageSerializer(msg).data,
             message="Reply sent.",
@@ -276,17 +296,127 @@ class MessageThreadViewSet(viewsets.GenericViewSet):
 # ── Hashtag ViewSet ───────────────────────────────────────────────────────────
 
 class HashtagViewSet(viewsets.ModelViewSet):
-    """
-    GET    /hashtags/        → list all hashtags (public)
-    POST   /hashtags/        → create hashtag (admin only)
-    GET    /hashtags/{id}/   → retrieve (public)
-    PUT    /hashtags/{id}/   → update (admin only)
-    DELETE /hashtags/{id}/   → delete (admin only)
-    """
     serializer_class = HashtagSerializer
     queryset = Hashtag.objects.all().order_by('name')
+    pagination_class = None
 
     def get_permissions(self):
         if self.action in ('list', 'retrieve'):
             return [AllowAny()]
         return [IsAuthenticated(), IsAdminUser()]
+
+    def list(self, request):
+        return success_response(data=self.get_serializer(self.get_queryset(), many=True).data)
+
+
+# ── Admin Log ViewSet ─────────────────────────────────────────────────────────
+
+class AdminLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    GET /admin/logs/        → paginated list of all admin actions
+    GET /admin/logs/{id}/   → single log entry
+    """
+    serializer_class = AdminLogSerializer
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def get_queryset(self):
+        qs = AdminLog.objects.select_related('admin')
+        action_filter = self.request.query_params.get('action')
+        if action_filter:
+            qs = qs.filter(action=action_filter)
+        return qs
+
+    def list(self, request):
+        qs = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            return self.get_paginated_response(AdminLogSerializer(page, many=True).data)
+        return success_response(data=AdminLogSerializer(qs, many=True).data)
+
+    def retrieve(self, request, pk=None):
+        log = get_object_or_404(self.get_queryset(), pk=pk)
+        return success_response(data=AdminLogSerializer(log).data)
+
+
+# ── Admin Dashboard ───────────────────────────────────────────────────────────
+
+class AdminDashboardView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    @swagger_auto_schema(responses={200: 'Dashboard stats'})
+    def get(self, request):
+        from django.utils import timezone
+        from django.db.models import Sum
+        from apps.user_account.models import User
+
+        now = timezone.now()
+        # current month window
+        this_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        # previous month window
+        prev_month_end = this_month_start
+        prev_month_start = (this_month_start.replace(day=1) - timezone.timedelta(days=1)).replace(day=1)
+
+        def pct_change(current, previous):
+            if previous == 0:
+                return 100.0 if current > 0 else 0.0
+            return round((current - previous) / previous * 100, 1)
+
+        # ── Users (non-admin) ─────────────────────────────────────────────────
+        total_users = User.objects.filter(role='user').count()
+        users_this  = User.objects.filter(role='user', created_at__gte=this_month_start).count()
+        users_prev  = User.objects.filter(role='user', created_at__gte=prev_month_start, created_at__lt=prev_month_end).count()
+
+        # ── Stories submitted (pending + approved + rejected) ─────────────────
+        total_stories = Story.objects.exclude(status=Story.Status.DRAFT).count()
+        stories_this  = Story.objects.exclude(status=Story.Status.DRAFT).filter(created_at__gte=this_month_start).count()
+        stories_prev  = Story.objects.exclude(status=Story.Status.DRAFT).filter(created_at__gte=prev_month_start, created_at__lt=prev_month_end).count()
+
+        # ── Total views ───────────────────────────────────────────────────────
+        total_views = Story.objects.aggregate(t=Sum('view_count'))['t'] or 0
+        # views growth: compare approved stories created this vs prev month as proxy
+        views_this = Story.objects.filter(created_at__gte=this_month_start).aggregate(t=Sum('view_count'))['t'] or 0
+        views_prev = Story.objects.filter(created_at__gte=prev_month_start, created_at__lt=prev_month_end).aggregate(t=Sum('view_count'))['t'] or 0
+
+        # ── Payments received ─────────────────────────────────────────────────
+        payment_total = 0
+        payment_this  = 0
+        payment_prev  = 0
+        try:
+            from apps.payments.models import Donation
+            payment_total = Donation.objects.aggregate(t=Sum('amount'))['t'] or 0
+            payment_this  = Donation.objects.filter(created_at__gte=this_month_start).aggregate(t=Sum('amount'))['t'] or 0
+            payment_prev  = Donation.objects.filter(created_at__gte=prev_month_start, created_at__lt=prev_month_end).aggregate(t=Sum('amount'))['t'] or 0
+        except Exception:
+            pass
+
+        # ── Top 5 most viewed stories ─────────────────────────────────────────
+        top_stories = (
+            Story.objects.filter(status=Story.Status.APPROVED)
+            .order_by('-view_count')[:5]
+            .values('id', 'title', 'view_count', 'created_at')
+        )
+
+        # ── Recent 5 stories (latest submitted) ───────────────────────────────
+        recent_stories = (
+            Story.objects.exclude(status=Story.Status.DRAFT)
+            .order_by('-created_at')[:5]
+            .values('id', 'title', 'status', 'created_at')
+        )
+
+        # ── Last 5 admin activity logs ────────────────────────────────────────
+        recent_activity = AdminLogSerializer(
+            AdminLog.objects.select_related('admin').order_by('-created_at')[:5],
+            many=True
+        ).data
+
+        return success_response(data={
+            "stats": {
+                "total_users":   {"count": total_users,       "change_pct": pct_change(users_this, users_prev)},
+                "stories_submitted": {"count": total_stories, "change_pct": pct_change(stories_this, stories_prev)},
+                "total_views":   {"count": total_views,       "change_pct": pct_change(views_this, views_prev)},
+                "payment_received": {"amount": float(payment_total), "change_pct": pct_change(float(payment_this), float(payment_prev))},
+            },
+            "top_stories":     list(top_stories),
+            "recent_stories":  list(recent_stories),
+            "recent_activity": recent_activity,
+        })

@@ -1,7 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
 from apps.user_account.api_v1.serializers import (
     RegisterSerializer,
     VerifyEmailSerializer,
@@ -29,9 +28,11 @@ class RegisterView(APIView):
         if not serializer.is_valid():
             return error_response(errors=serializer.errors, message="Registration failed.")
         user = serializer.save()
-        Profile.objects.get_or_create(user=user)
         return success_response(
-            data={"email": user.email},
+            data={
+                "email": user.email,
+                "full_name": user.profile.full_name,
+            },
             message="Registration successful. Check your email for the OTP.",
             status_code=201,
         )

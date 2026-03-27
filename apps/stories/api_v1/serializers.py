@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from apps.stories.models import (
     Story, StoryMedia, StoryDocument, Hashtag,
-    MessageThread, Message,
+    MessageThread, Message, AdminLog,
 )
 
 
@@ -156,3 +156,17 @@ class MessageThreadListSerializer(serializers.ModelSerializer):
 
 # keep old name as alias so existing imports don't break
 MessageThreadSerializer = MessageThreadDetailSerializer
+
+
+# ── Admin Log ─────────────────────────────────────────────────────────────────
+
+class AdminLogSerializer(serializers.ModelSerializer):
+    admin_email = serializers.EmailField(source='admin.email', read_only=True)
+
+    class Meta:
+        model = AdminLog
+        fields = [
+            'id', 'admin_email', 'action', 'target_type',
+            'target_id', 'target_label', 'notes', 'created_at',
+        ]
+        read_only_fields = fields

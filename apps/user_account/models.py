@@ -83,13 +83,11 @@ class OTPVerification(models.Model):
 class Profile(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    first_name = models.CharField(max_length=100, blank=True)
-    last_name = models.CharField(max_length=100, blank=True)
+    full_name = models.CharField(max_length=200, blank=True)
     business_name = models.CharField(max_length=255, blank=True)
     country = models.CharField(max_length=100, blank=True)
     bio = models.TextField(blank=True)
     avatar_url = models.URLField(blank=True)
-    # Admin-controlled: can this user reply in message threads?
     can_reply = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -99,8 +97,4 @@ class Profile(models.Model):
 
     def __str__(self):
         return f"Profile({self.user.email})"
-
-    @property
-    def full_name(self):
-        return f"{self.first_name} {self.last_name}".strip() or self.user.email
 
