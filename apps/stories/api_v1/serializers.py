@@ -44,9 +44,9 @@ class StorySerializer(serializers.ModelSerializer):
         fields = [
             'id', 'author_email', 'title', 'content', 'status',
             'hashtags', 'hashtag_names', 'media', 'documents',
-            'view_count', 'total_donated', 'created_at', 'updated_at',
+            'view_count', 'total_donated', 'is_featured', 'created_at', 'updated_at',
         ]
-        read_only_fields = ['id', 'status', 'view_count', 'total_donated', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'status', 'view_count', 'total_donated', 'is_featured', 'created_at', 'updated_at']
 
     def create(self, validated_data):
         from apps.stories.service import get_or_create_hashtags

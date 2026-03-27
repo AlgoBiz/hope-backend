@@ -42,6 +42,9 @@ class StoryViewSet(viewsets.ModelViewSet):
             hashtag = self.request.query_params.get('hashtag')
             if hashtag:
                 qs = qs.filter(hashtags__name__iexact=hashtag).distinct()
+            featured = self.request.query_params.get('featured')
+            if featured is not None:
+                qs = qs.filter(is_featured=featured.lower() == 'true')
         elif self.action == 'my':
             qs = qs.filter(user=self.request.user)
         return qs
@@ -181,6 +184,24 @@ class AdminStoryViewSet(viewsets.ReadOnlyModelViewSet):
             notes=notes,
         )
         return success_response(message=f"Story {story.status}.")
+
+    @action(detail=True, methods=['post'], url_path='feature')
+    def feature(self, request, pk=None):
+        story = self.get_object()
+        story.is_featured = not story.is_featured
+        story.save(update_fields=['is_featured'])
+        AdminLog.objects.create(
+            admin=request.user,
+            action=AdminLog.Action.OTHER,
+            target_type='Story',
+            target_id=str(story.id),
+            target_label=story.title,
+            notes=f"Story {'featured' if story.is_featured else 'unfeatured'}.",
+        )
+        return success_response(
+            data={'is_featured': story.is_featured},
+            message=f"Story {'featured' if story.is_featured else 'unfeatured'}.",
+        )
 
 
 # ── Messaging ViewSet ─────────────────────────────────────────────────────────
