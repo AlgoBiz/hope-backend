@@ -1,0 +1,26 @@
+[Unit]
+Description=Hope Backend Gunicorn Daemon
+Requires=gunicorn.socket
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/hope-backend
+ExecStart=/var/www/hope-backend/venv/bin/gunicorn \
+    --access-logfile /var/log/gunicorn/access.log \
+    --error-logfile /var/log/gunicorn/error.log \
+    --log-level debug \
+    --capture-output \
+    --workers 3 \
+    --bind unix:/run/gunicorn/hope.sock \
+    core.wsgi:application
+
+EnvironmentFile=/var/www/hope-backend/.env
+Environment="DJANGO_SETTINGS_MODULE=core.settings.prod"
+
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

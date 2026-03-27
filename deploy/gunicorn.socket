@@ -1,0 +1,9 @@
+[Unit]
+Description=Hope Backend Gunicorn Socket
+
+[Socket]
+ListenStream=/run/gunicorn/hope.sock
+SocketUser=www-data
+
+[Install]
+WantedBy=sockets.target
