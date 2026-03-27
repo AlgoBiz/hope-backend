@@ -56,7 +56,7 @@ class LoginSerializer(serializers.Serializer):
         if not user.is_active:
             raise serializers.ValidationError("Account is disabled.")
 
-        if not user.is_verified:
+        if not user.is_verified and not user.is_superuser:
             raise serializers.ValidationError("Email not verified.")
 
         refresh = RefreshToken.for_user(user)

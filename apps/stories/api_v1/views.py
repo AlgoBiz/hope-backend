@@ -6,13 +6,14 @@ from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
-from apps.stories.models import Story, MessageThread, Message
+from apps.stories.models import Story, MessageThread, Message, Hashtag
 from apps.stories.service import increment_view_count, get_or_create_thread
 from apps.stories.api_v1.permissions import IsAdminUser, IsOwnerOrAdmin
 from apps.stories.api_v1.serializers import (
     StorySerializer, AdminStorySerializer, StoryActionSerializer,
     StoryMediaUploadSerializer, StoryDocumentUploadSerializer,
     MessageSerializer, MessageThreadDetailSerializer, MessageThreadListSerializer,
+    HashtagSerializer,
 )
 from apps.user_account.utils import success_response, error_response
 
@@ -270,3 +271,22 @@ class MessageThreadViewSet(viewsets.GenericViewSet):
             message="Reply sent.",
             status_code=201,
         )
+
+
+# ── Hashtag ViewSet ───────────────────────────────────────────────────────────
+
+class HashtagViewSet(viewsets.ModelViewSet):
+    """
+    GET    /hashtags/        → list all hashtags (public)
+    POST   /hashtags/        → create hashtag (admin only)
+    GET    /hashtags/{id}/   → retrieve (public)
+    PUT    /hashtags/{id}/   → update (admin only)
+    DELETE /hashtags/{id}/   → delete (admin only)
+    """
+    serializer_class = HashtagSerializer
+    queryset = Hashtag.objects.all().order_by('name')
+
+    def get_permissions(self):
+        if self.action in ('list', 'retrieve'):
+            return [AllowAny()]
+        return [IsAuthenticated(), IsAdminUser()]
