@@ -6,7 +6,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-from apps.stories.models import Story, MessageThread, Message, Hashtag, AdminLog, Testimonial
+from apps.stories.models import Story, MessageThread, Message, Hashtag, AdminLog, Testimonial, StoryMedia, StoryDocument
 from apps.stories.service import increment_view_count, get_or_create_thread
 from apps.stories.api_v1.permissions import IsAdminUser, IsOwnerOrAdmin
 from apps.stories.api_v1.serializers import (
@@ -51,7 +51,23 @@ class StoryViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
+        # kept for DRF compatibility but file handling is done in create()
         serializer.save(user=self.request.user, status=Story.Status.PENDING)
+
+    @swagger_auto_schema(
+        operation_description="Create a new story. Use multipart/form-data to include files.",
+        manual_parameters=[
+            openapi.Parameter('title', openapi.IN_FORM, type=openapi.TYPE_STRING, required=True),
+            openapi.Parameter('content', openapi.IN_FORM, type=openapi.TYPE_STRING, required=True),
+            openapi.Parameter('hashtag_names', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False,
+                              description='Comma-separated or repeated field. e.g. health'),
+            openapi.Parameter('media_files', openapi.IN_FORM, type=openapi.TYPE_FILE, required=False),
+            openapi.Parameter('media_types', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False,
+                              description='image or video, one per media_file'),
+            openapi.Parameter('document_files', openapi.IN_FORM, type=openapi.TYPE_FILE, required=False),
+        ],
+        consumes=['multipart/form-data'],
+    )
 
     def retrieve(self, request, *args, **kwargs):
         # Public — every visit (auth or anonymous) increments view_count
@@ -71,9 +87,31 @@ class StoryViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         if not serializer.is_valid():
             return error_response(errors=serializer.errors, message="Story creation failed.")
-        self.perform_create(serializer)
-        return success_response(data=serializer.data, message="Story created.", status_code=201)
+        story = serializer.save(user=request.user, status=Story.Status.PENDING)
 
+        # handle optional file uploads sent alongside story creation
+        media_files = request.FILES.getlist('media_files')
+        media_types = request.data.getlist('media_types')
+        document_files = request.FILES.getlist('document_files')
+
+        for i, file in enumerate(media_files):
+            mtype = media_types[i] if i < len(media_types) else 'image'
+            StoryMedia.objects.create(story=story, file=file, type=mtype)
+
+        for file in document_files:
+            StoryDocument.objects.create(story=story, file=file)
+
+        return success_response(data=self.get_serializer(story).data, message="Story created.", status_code=201)
+
+    @swagger_auto_schema(
+        operation_description="Update a story (full). Use multipart/form-data to include files.",
+        manual_parameters=[
+            openapi.Parameter('title', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False),
+            openapi.Parameter('content', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False),
+            openapi.Parameter('hashtag_names', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False),
+        ],
+        consumes=['multipart/form-data'],
+    )
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
@@ -155,7 +193,6 @@ class StoryViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['delete'], url_path='media/(?P<media_id>[^/.]+)', permission_classes=[IsAuthenticated, IsOwnerOrAdmin])
     def delete_media(self, request, pk=None, media_id=None):
-        from apps.stories.models import StoryMedia
         story = self.get_object()
         media = get_object_or_404(StoryMedia, pk=media_id, story=story)
         media.delete()
@@ -163,7 +200,6 @@ class StoryViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['delete'], url_path='documents/(?P<doc_id>[^/.]+)', permission_classes=[IsAuthenticated, IsOwnerOrAdmin])
     def delete_document(self, request, pk=None, doc_id=None):
-        from apps.stories.models import StoryDocument
         story = self.get_object()
         doc = get_object_or_404(StoryDocument, pk=doc_id, story=story)
         doc.delete()

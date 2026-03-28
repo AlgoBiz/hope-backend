@@ -156,3 +156,12 @@ class UserMeSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'email', 'role', 'is_verified', 'is_active', 'created_at', 'profile']
         read_only_fields = fields
+
+
+class AdminUserListSerializer(serializers.ModelSerializer):
+    profile = ProfileSerializer(read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'role', 'is_verified', 'is_active', 'created_at', 'profile']
+        read_only_fields = fields

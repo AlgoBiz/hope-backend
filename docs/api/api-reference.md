@@ -276,21 +276,21 @@ List all approved stories. Public.
 ---
 
 ### POST `/stories/`
-Create a new story. Supports multipart (with files) or JSON.
+Create a new story.
 
 **Auth:** Required
 
-**Content-Type:** `multipart/form-data` or `application/json`
+**Content-Type:** `multipart/form-data`
 
 **Body:**
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
 | title | string | yes | |
 | content | string | yes | |
-| hashtag_names | array of strings | no | e.g. `["health", "food"]` |
-| media_files | array of files | no | multipart only |
-| media_types | array of strings | no | `image` or `video`, matches index of media_files |
-| document_files | array of files | no | multipart only |
+| hashtag_names | string | no | Repeated field or comma-separated. e.g. `health` |
+| media_files | file | no | Repeat field for multiple files |
+| media_types | string | no | `image` or `video`, one per `media_files` entry |
+| document_files | file | no | Repeat field for multiple files |
 
 **Response 201:**
 ```json
@@ -298,6 +298,7 @@ Create a new story. Supports multipart (with files) or JSON.
 ```
 
 > Story is created with status `pending` automatically.
+> Files must be sent as `multipart/form-data` — JSON body does not support file uploads.
 
 ---
 
@@ -318,7 +319,14 @@ Full update of a story. Only allowed if status is `draft` or `rejected`.
 
 **Auth:** Required (owner or admin)
 
-**Body:** Same fields as POST.
+**Content-Type:** `multipart/form-data`
+
+**Body:**
+| Field | Type | Required |
+|-------|------|----------|
+| title | string | yes |
+| content | string | yes |
+| hashtag_names | string | no |
 
 ---
 
@@ -327,7 +335,9 @@ Partial update of a story. Only allowed if status is `draft` or `rejected`.
 
 **Auth:** Required (owner or admin)
 
-**Body:** Any subset of POST fields.
+**Content-Type:** `multipart/form-data`
+
+**Body:** Any subset of PUT fields.
 
 ---
 
@@ -669,7 +679,81 @@ Delete a testimonial.
 
 ---
 
-## Admin — Stories
+## Admin — Users
+
+### GET `/admin/users/`
+List all non-admin users with their profile data.
+
+**Auth:** Required (admin only)
+
+**Query Filters:**
+| Param | Type | Description |
+|-------|------|-------------|
+| is_active | boolean | `true` or `false` |
+| is_verified | boolean | `true` or `false` |
+| search | string | Search by email or full name |
+| page | integer | Pagination |
+
+**Response 200:**
+```json
+{
+  "count": 50,
+  "next": "...",
+  "previous": null,
+  "results": [
+    {
+      "id": "uuid",
+      "email": "user@example.com",
+      "role": "user",
+      "is_verified": true,
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "profile": {
+        "id": "uuid",
+        "email": "user@example.com",
+        "full_name": "John Doe",
+        "business_name": "",
+        "country": "",
+        "bio": "",
+        "avatar_url": "",
+        "can_reply": true,
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z"
+      }
+    }
+  ]
+}
+```
+
+---
+
+### GET `/admin/users/{user_id}/`
+Get a single user with profile data.
+
+**Auth:** Required (admin only)
+
+**Response 200:** Single user object same as above.
+
+---
+
+### PATCH `/admin/users/{user_id}/`
+Activate or deactivate a user.
+
+**Auth:** Required (admin only)
+
+**Body (JSON):**
+| Field | Type | Required |
+|-------|------|----------|
+| is_active | boolean | yes |
+
+**Response 200:**
+```json
+{ "status": "success", "message": "User deactivated.", "data": { ...user } }
+```
+
+---
+
+
 
 ### GET `/admin/stories/`
 List all stories (all statuses) for admin review.

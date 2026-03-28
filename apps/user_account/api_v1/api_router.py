@@ -10,6 +10,8 @@ from apps.user_account.api_v1.views import (
     ChangePasswordView,
     MeView,
     ProfileUpdateView,
+    AdminUserListView,
+    AdminUserDetailView,
 )
 
 app_name = "user_account_api_router_v1"
@@ -28,4 +30,7 @@ urlpatterns = [
     # User
     path("auth/me/", MeView.as_view(), name="me"),
     path("profile/", ProfileUpdateView.as_view(), name="profile"),
+    # Admin — Users
+    path("admin/users/", AdminUserListView.as_view(), name="admin-user-list"),
+    path("admin/users/<uuid:user_id>/", AdminUserDetailView.as_view(), name="admin-user-detail"),
 ]

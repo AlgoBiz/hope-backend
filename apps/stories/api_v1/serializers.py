@@ -39,24 +39,11 @@ class StorySerializer(serializers.ModelSerializer):
     documents = StoryDocumentSerializer(many=True, read_only=True)
     author_email = serializers.EmailField(source='user.email', read_only=True)
 
-    # write-only upload fields for single-request story creation
-    media_files = serializers.ListField(
-        child=serializers.FileField(), write_only=True, required=False, default=list,
-    )
-    media_types = serializers.ListField(
-        child=serializers.ChoiceField(choices=['image', 'video']),
-        write_only=True, required=False, default=list,
-    )
-    document_files = serializers.ListField(
-        child=serializers.FileField(), write_only=True, required=False, default=list,
-    )
-
     class Meta:
         model = Story
         fields = [
             'id', 'author_email', 'title', 'content', 'status',
             'hashtags', 'hashtag_names', 'media', 'documents',
-            'media_files', 'media_types', 'document_files',
             'view_count', 'total_donated', 'is_featured', 'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'status', 'view_count', 'total_donated', 'is_featured', 'created_at', 'updated_at']
@@ -64,29 +51,16 @@ class StorySerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         from apps.stories.service import get_or_create_hashtags
         hashtag_names = validated_data.pop('hashtag_names', [])
-        media_files   = validated_data.pop('media_files', [])
-        media_types   = validated_data.pop('media_types', [])
-        document_files = validated_data.pop('document_files', [])
 
         story = Story.objects.create(**validated_data)
 
         if hashtag_names:
             story.hashtags.set(get_or_create_hashtags(hashtag_names))
 
-        for i, file in enumerate(media_files):
-            mtype = media_types[i] if i < len(media_types) else 'image'
-            StoryMedia.objects.create(story=story, file=file, type=mtype)
-
-        for file in document_files:
-            StoryDocument.objects.create(story=story, file=file)
-
         return story
 
     def update(self, instance, validated_data):
         from apps.stories.service import get_or_create_hashtags
-        validated_data.pop('media_files', None)
-        validated_data.pop('media_types', None)
-        validated_data.pop('document_files', None)
         hashtag_names = validated_data.pop('hashtag_names', None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
