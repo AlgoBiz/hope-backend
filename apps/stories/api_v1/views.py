@@ -54,21 +54,6 @@ class StoryViewSet(viewsets.ModelViewSet):
         # kept for DRF compatibility but file handling is done in create()
         serializer.save(user=self.request.user, status=Story.Status.PENDING)
 
-    @swagger_auto_schema(
-        operation_description="Create a new story. Use multipart/form-data to include files.",
-        manual_parameters=[
-            openapi.Parameter('title', openapi.IN_FORM, type=openapi.TYPE_STRING, required=True),
-            openapi.Parameter('content', openapi.IN_FORM, type=openapi.TYPE_STRING, required=True),
-            openapi.Parameter('hashtag_names', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False,
-                              description='Comma-separated or repeated field. e.g. health'),
-            openapi.Parameter('media_files', openapi.IN_FORM, type=openapi.TYPE_FILE, required=False),
-            openapi.Parameter('media_types', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False,
-                              description='image or video, one per media_file'),
-            openapi.Parameter('document_files', openapi.IN_FORM, type=openapi.TYPE_FILE, required=False),
-        ],
-        consumes=['multipart/form-data'],
-    )
-
     def retrieve(self, request, *args, **kwargs):
         # Public — every visit (auth or anonymous) increments view_count
         story = self.get_object()
@@ -83,6 +68,20 @@ class StoryViewSet(viewsets.ModelViewSet):
             return self.get_paginated_response(self.get_serializer(page, many=True).data)
         return success_response(data=self.get_serializer(qs, many=True).data)
 
+    @swagger_auto_schema(
+        operation_description="Create a new story. Use multipart/form-data to include files.",
+        manual_parameters=[
+            openapi.Parameter('title', openapi.IN_FORM, type=openapi.TYPE_STRING, required=True),
+            openapi.Parameter('content', openapi.IN_FORM, type=openapi.TYPE_STRING, required=True),
+            openapi.Parameter('hashtag_names', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False,
+                              description='Comma-separated or repeated field. e.g. health'),
+            openapi.Parameter('media_files', openapi.IN_FORM, type=openapi.TYPE_FILE, required=False),
+            openapi.Parameter('media_types', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False,
+                              description='image or video, one per media_file'),
+            openapi.Parameter('document_files', openapi.IN_FORM, type=openapi.TYPE_FILE, required=False),
+        ],
+        consumes=['multipart/form-data'],
+    )
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if not serializer.is_valid():
