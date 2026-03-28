@@ -1,7 +1,7 @@
 import uuid
 from django.db import models
 from apps.user_account.models import User
-from stories.models import Story
+from apps.stories.models import Story
 
 
 class Payment(models.Model):
