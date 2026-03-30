@@ -151,14 +151,32 @@ class ProfileUpdateView(APIView):
         serializer = ProfileSerializer(profile)
         return success_response(data=serializer.data)
 
-    @swagger_auto_schema(request_body=ProfileSerializer)
-    def patch(self, request):
+    def _update_profile(self, request, partial=False):
         profile, _ = Profile.objects.get_or_create(user=request.user)
-        serializer = ProfileSerializer(profile, data=request.data, partial=True)
+        
+        allowed_data = {}
+        if 'full_name' in request.data:
+            allowed_data['full_name'] = request.data['full_name']
+        
+        # Accommodate 'business' or 'business_name' keys from frontend
+        if 'business_name' in request.data:
+            allowed_data['business_name'] = request.data['business_name']
+        elif 'business' in request.data:
+            allowed_data['business_name'] = request.data['business']
+
+        serializer = ProfileSerializer(profile, data=allowed_data, partial=partial)
         if not serializer.is_valid():
             return error_response(errors=serializer.errors, message="Profile update failed.")
         serializer.save()
         return success_response(data=serializer.data, message="Profile updated.")
+
+    @swagger_auto_schema(request_body=ProfileSerializer)
+    def put(self, request):
+        return self._update_profile(request, partial=False)
+
+    @swagger_auto_schema(request_body=ProfileSerializer)
+    def patch(self, request):
+        return self._update_profile(request, partial=True)
 
 
 class AdminUserListView(APIView):
