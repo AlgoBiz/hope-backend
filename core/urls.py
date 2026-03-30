@@ -25,7 +25,7 @@ schema_view = get_schema_view(
 urlpatterns = [
     path("api/v1/", include("apps.user_account.api_v1.api_router", namespace="user_account_api_router_v1")),
     path("api/v1/", include("apps.stories.api_v1.api_router", namespace="stories_api_v1")),
-    
+    path("api/v1/", include("apps.payments.api_v1.api_router", namespace="payments_api_v1")),
 
     path(settings.ADMIN_URL, admin.site.urls),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

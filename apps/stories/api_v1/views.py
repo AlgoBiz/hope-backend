@@ -163,6 +163,19 @@ class StoryViewSet(viewsets.ModelViewSet):
             return self.get_paginated_response(self.get_serializer(page, many=True).data)
         return success_response(data=self.get_serializer(qs, many=True).data)
 
+    @action(detail=False, methods=['get'], url_path='unread-messages', permission_classes=[IsAuthenticated])
+    def unread_messages(self, request):
+        from django.db.models import Count, Q
+        qs = Story.objects.filter(user=request.user).annotate(
+            new_message_count=Count(
+                'threads__messages',
+                filter=Q(threads__messages__is_read=False) & ~Q(threads__messages__sender=request.user)
+            )
+        )
+        
+        data = qs.values('id', 'title', 'new_message_count').order_by('-updated_at')
+        return success_response(data=list(data))
+
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsOwnerOrAdmin])
     def submit(self, request, pk=None):
         story = self.get_object()
