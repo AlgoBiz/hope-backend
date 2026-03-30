@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from apps.stories.models import (
     Story, StoryMedia, StoryDocument, Hashtag,
-    MessageThread, Message, AdminLog, Testimonial,
+    MessageThread, Message, AdminLog, Testimonial, Content,
 )
 
 
@@ -182,3 +182,12 @@ class TestimonialSerializer(serializers.ModelSerializer):
         model = Testimonial
         fields = ['id', 'name', 'role', 'quote', 'avatar_url', 'is_active', 'order', 'created_at']
         read_only_fields = ['id', 'created_at']
+
+
+# ── Content ───────────────────────────────────────────────────────────────────
+
+class ContentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Content
+        fields = ['id', 'title', 'content', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']

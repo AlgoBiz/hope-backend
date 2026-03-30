@@ -6,7 +6,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-from apps.stories.models import Story, MessageThread, Message, Hashtag, AdminLog, Testimonial, StoryMedia, StoryDocument
+from apps.stories.models import Story, MessageThread, Message, Hashtag, AdminLog, Testimonial, StoryMedia, StoryDocument, Content
 from apps.stories.service import increment_view_count, get_or_create_thread
 from apps.stories.api_v1.permissions import IsAdminUser, IsOwnerOrAdmin
 from apps.stories.api_v1.serializers import (
@@ -14,6 +14,7 @@ from apps.stories.api_v1.serializers import (
     StoryMediaUploadSerializer, StoryDocumentUploadSerializer,
     MessageSerializer, MessageThreadDetailSerializer, MessageThreadListSerializer,
     HashtagSerializer, AdminLogSerializer, TestimonialSerializer,
+    ContentSerializer,
 )
 from apps.user_account.utils import success_response, error_response
 
@@ -546,6 +547,109 @@ class AdminDashboardView(APIView):
         })
 
 
+# ── Reports & Analytics ───────────────────────────────────────────────────────
+
+class AnalyticsReportView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    @swagger_auto_schema(responses={200: 'Analytics payload matching UI'})
+    def get(self, request):
+        from django.utils import timezone
+        from django.db.models import Sum
+        from apps.user_account.models import User
+        from apps.stories.models import Story
+
+        now = timezone.now()
+        this_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        # 1. Story Posting Report
+        stories_all = Story.objects.exclude(status=Story.Status.DRAFT)
+        total_submitted = stories_all.count()
+        approved = stories_all.filter(status=Story.Status.APPROVED).count()
+        pending = stories_all.filter(status=Story.Status.PENDING).count()
+        rejected = stories_all.filter(status=Story.Status.REJECTED).count()
+        this_month_stories = stories_all.filter(created_at__gte=this_month_start).count()
+
+        story_posting_report = {
+            "total_submitted": total_submitted,
+            "approved": approved,
+            "pending_review": pending,
+            "rejected": rejected,
+            "this_month": this_month_stories,
+        }
+
+        # 2. Payment Report
+        total_revenue = 0
+        completed_payments = 0
+        pending_payments = 0
+        this_month_revenue = 0
+        avg_per_month = 0
+        try:
+            from apps.payments.models import Donation
+            donations = Donation.objects.all()
+            total_revenue = donations.aggregate(t=Sum('amount'))['t'] or 0
+            completed_payments = donations.count()
+            this_month_revenue = donations.filter(created_at__gte=this_month_start).aggregate(t=Sum('amount'))['t'] or 0
+            first_txn = donations.order_by('created_at').first()
+            if first_txn:
+                months = (now.year - first_txn.created_at.year) * 12 + now.month - first_txn.created_at.month + 1
+                avg_per_month = total_revenue / months if months > 0 else total_revenue
+        except Exception:
+            pass
+
+        payment_report = {
+            "total_revenue": float(total_revenue),
+            "completed_payments": completed_payments,
+            "pending": pending_payments,
+            "this_month_revenue": float(this_month_revenue),
+            "average_per_month": float(avg_per_month)
+        }
+
+        # 3. Reader Analytics
+        appr_stories = Story.objects.filter(status=Story.Status.APPROVED)
+        total_page_views = appr_stories.aggregate(t=Sum('view_count'))['t'] or 0
+        unique_readers = User.objects.filter(role='user').count()
+        total_ap_stories = appr_stories.count()
+        avg_views = total_page_views / total_ap_stories if total_ap_stories else 0
+        most_read = appr_stories.order_by('-view_count').first()
+        most_read_views = most_read.view_count if most_read else 0
+        this_month_views = appr_stories.filter(created_at__gte=this_month_start).aggregate(t=Sum('view_count'))['t'] or 0
+
+        reader_analytics = {
+            "total_page_views": total_page_views,
+            "unique_readers": unique_readers,
+            "avg_views_per_story": int(avg_views),
+            "most_read_story_views": most_read_views,
+            "this_month_views": this_month_views,
+        }
+
+        # 4. Monthly Trends (Submissions over last 12 months)
+        import calendar
+        monthly_trends = []
+        for i in range(11, -1, -1):
+            t_month = (now.month - i - 1) % 12 + 1
+            t_year = now.year - 1 if (now.month - i - 1) < 0 else now.year
+            m_s = now.replace(year=t_year, month=t_month, day=1, hour=0, minute=0, second=0, microsecond=0)
+            if t_month == 12:
+                m_e = m_s.replace(year=t_year + 1, month=1)
+            else:
+                m_e = m_s.replace(month=t_month + 1)
+            
+            # Plot completed payments as proxy for trend if desired, or story submissions? Let's do story submissions.
+            v = Story.objects.exclude(status=Story.Status.DRAFT).filter(created_at__gte=m_s, created_at__lt=m_e).count()
+            monthly_trends.append({
+                "month": calendar.month_abbr[t_month][0], # 'J', 'F', 'M'
+                "value": v
+            })
+
+        return success_response(data={
+            "story_posting_report": story_posting_report,
+            "payment_report": payment_report,
+            "reader_analytics": reader_analytics,
+            "monthly_trends": monthly_trends
+        })
+
+
 # ── Testimonial ViewSet ───────────────────────────────────────────────────────
 
 class TestimonialViewSet(viewsets.ModelViewSet):
@@ -571,3 +675,33 @@ class TestimonialViewSet(viewsets.ModelViewSet):
 
     def list(self, request):
         return success_response(data=self.get_serializer(self.get_queryset(), many=True).data)
+
+
+# ── Content ViewSet ───────────────────────────────────────────────────────────
+
+class ContentViewSet(viewsets.ModelViewSet):
+    """
+    GET    /content/       → public list
+    GET    /content/{id}/  → public retrieve
+    POST   /content/       → admin create
+    PUT    /content/{id}/  → admin update
+    DELETE /content/{id}/  → admin delete
+    """
+    serializer_class = ContentSerializer
+    queryset = Content.objects.all()
+
+    def get_permissions(self):
+        if self.action in ('list', 'retrieve'):
+            return [AllowAny()]
+        return [IsAuthenticated(), IsAdminUser()]
+
+    def list(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            return self.get_paginated_response(self.get_serializer(page, many=True).data)
+        return success_response(data=self.get_serializer(qs, many=True).data)
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        return success_response(data=self.get_serializer(instance).data)

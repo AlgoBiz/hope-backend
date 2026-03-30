@@ -7,7 +7,9 @@ from apps.stories.api_v1.views import (
     HashtagViewSet,
     AdminLogViewSet,
     AdminDashboardView,
+    AnalyticsReportView,
     TestimonialViewSet,
+    ContentViewSet,
 )
 
 router = DefaultRouter()
@@ -17,10 +19,12 @@ router.register(r'admin/logs', AdminLogViewSet, basename='admin-log')
 router.register(r'threads', MessageThreadViewSet, basename='thread')
 router.register(r'hashtags', HashtagViewSet, basename='hashtag')
 router.register(r'testimonials', TestimonialViewSet, basename='testimonial')
+router.register(r'content', ContentViewSet, basename='content')
 
 app_name = 'stories_api_v1'
 
 urlpatterns = [
     path('', include(router.urls)),
     path('admin/dashboard/', AdminDashboardView.as_view(), name='admin-dashboard'),
+    path('admin/analytics/', AnalyticsReportView.as_view(), name='admin-analytics'),
 ]
