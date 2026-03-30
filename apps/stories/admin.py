@@ -118,3 +118,12 @@ class TestimonialAdmin(admin.ModelAdmin):
     list_editable = ['is_active', 'order']
     search_fields = ['name', 'role', 'quote']
     list_filter = ['is_active']
+
+
+from apps.stories.models import ContactForm
+
+@admin.register(ContactForm)
+class ContactFormAdmin(admin.ModelAdmin):
+    list_display = ['full_name', 'email', 'subject', 'created_at']
+    search_fields = ['full_name', 'email', 'subject', 'message']
+    readonly_fields = ['created_at']

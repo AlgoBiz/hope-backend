@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from apps.stories.models import (
     Story, StoryMedia, StoryDocument, Hashtag,
-    MessageThread, Message, AdminLog, Testimonial, Content,
+    MessageThread, Message, AdminLog, Testimonial, Content,ContactForm
 )
 
 
@@ -191,3 +191,12 @@ class ContentSerializer(serializers.ModelSerializer):
         model = Content
         fields = ['id', 'title', 'content', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+# ── Contact Form ──────────────────────────────────────────────────────────────
+
+class ContactFormSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContactForm
+        fields = ['id', 'full_name', 'email', 'subject', 'message', 'created_at']
+        read_only_fields = ['id', 'created_at']

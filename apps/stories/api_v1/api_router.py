@@ -10,6 +10,7 @@ from apps.stories.api_v1.views import (
     AnalyticsReportView,
     TestimonialViewSet,
     ContentViewSet,
+    ContactFormViewSet,
 )
 
 router = DefaultRouter()
@@ -20,6 +21,7 @@ router.register(r'threads', MessageThreadViewSet, basename='thread')
 router.register(r'hashtags', HashtagViewSet, basename='hashtag')
 router.register(r'testimonials', TestimonialViewSet, basename='testimonial')
 router.register(r'content', ContentViewSet, basename='content')
+router.register(r'contact-forms', ContactFormViewSet, basename='contact-form')
 
 app_name = 'stories_api_v1'
 

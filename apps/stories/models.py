@@ -154,3 +154,20 @@ class Content(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class ContactForm(models.Model):
+    full_name = models.CharField(max_length=255)
+    email = models.EmailField()
+    subject = models.CharField(max_length=255)
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'contact_forms'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.full_name} - {self.subject}"
+    
+    

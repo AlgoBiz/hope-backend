@@ -823,3 +823,36 @@ class ContentViewSet(viewsets.ModelViewSet):
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         return success_response(data=self.get_serializer(instance).data)
+
+
+# ── Contact Form ──────────────────────────────────────────────────────────────
+
+class ContactFormViewSet(viewsets.ModelViewSet):
+    """
+    POST   /contact-forms/       → public create
+    GET    /contact-forms/       → admin list
+    GET    /contact-forms/{id}/  → admin retrieve
+    PUT    /contact-forms/{id}/  → admin update
+    DELETE /contact-forms/{id}/  → admin delete
+    """
+    from apps.stories.api_v1.serializers import ContactFormSerializer
+    from apps.stories.models import ContactForm
+    serializer_class = ContactFormSerializer
+    queryset = ContactForm.objects.all()
+
+    def get_permissions(self):
+        if self.action == 'create':
+            return [AllowAny()]
+        return [IsAuthenticated(), IsAdminUser()]
+
+    def list(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            return self.get_paginated_response(self.get_serializer(page, many=True).data)
+        return success_response(data=self.get_serializer(qs, many=True).data)
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        return success_response(data=self.get_serializer(instance).data)
+
