@@ -138,3 +138,18 @@ class Testimonial(models.Model):
 
     def __str__(self):
         return f"{self.name} — {self.role}"
+
+
+
+class Content(models.Model):
+    title = models.CharField(max_length=255)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'content'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title
