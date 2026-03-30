@@ -388,6 +388,43 @@ class AdminStoryViewSet(viewsets.ReadOnlyModelViewSet):
             message=f"User replies {'enabled' if thread.is_reply else 'disabled'}."
         )
 
+    @action(detail=True, methods=['get', 'post'], url_path='messages')
+    def messages(self, request, pk=None):
+        story = self.get_object()
+        thread, created = get_or_create_thread(story=story, user=story.user, admin=request.user)
+
+        if request.method == 'GET':
+            # Mark messages received by this admin as read
+            thread.messages.exclude(sender=request.user).filter(is_read=False).update(is_read=True)
+            return success_response(data=MessageThreadDetailSerializer(thread).data)
+
+        elif request.method == 'POST':
+            body = request.data.get('body', '').strip()
+            if not body:
+                return error_response(message="body is required.", status_code=400)
+            
+            # Allow admins to dynamically toggle the is_reply lock while sending a message
+            if 'is_reply' in request.data:
+                thread.is_reply = str(request.data['is_reply']).lower() in ['true', '1', 'yes']
+
+            msg = Message.objects.create(thread=thread, sender=request.user, body=body)
+            thread.save(update_fields=['updated_at', 'is_reply'])
+
+            AdminLog.objects.create(
+                admin=request.user,
+                action=AdminLog.Action.MESSAGE_SENT,
+                target_type='MessageThread',
+                target_id=str(thread.id),
+                target_label=story.title,
+                notes=body[:200],
+            )
+
+            return success_response(
+                data=MessageSerializer(msg).data,
+                message="Message sent." if not created else "Message sent and thread created.",
+                status_code=201
+            )
+
 
 # ── Messaging ViewSet ─────────────────────────────────────────────────────────
 
