@@ -1,4 +1,4 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, filters
 from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -542,6 +542,8 @@ class HashtagViewSet(viewsets.ModelViewSet):
     serializer_class = HashtagSerializer
     queryset = Hashtag.objects.all().order_by('name')
     pagination_class = None
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name']
 
     def get_permissions(self):
         if self.action in ('list', 'retrieve'):
