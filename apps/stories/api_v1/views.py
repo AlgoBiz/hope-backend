@@ -525,6 +525,7 @@ class TestimonialViewSet(viewsets.ModelViewSet):
     """
     serializer_class = TestimonialSerializer
     pagination_class = None
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
         if self.action == 'list':

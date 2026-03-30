@@ -127,7 +127,7 @@ class Testimonial(models.Model):
     name = models.CharField(max_length=100)
     role = models.CharField(max_length=100, blank=True)  # e.g. "Robust bakery business"
     quote = models.TextField()
-    avatar = models.ImageField(upload_to='testimonials/avatars/', blank=True, null=True)
+    avatar_url = models.ImageField(upload_to='testimonials/avatars/', blank=True, null=True)
     is_active = models.BooleanField(default=True)
     order = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
