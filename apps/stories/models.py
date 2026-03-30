@@ -21,7 +21,7 @@ class Story(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='stories')
     title = models.CharField(max_length=255)
     content = models.TextField()
-    status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
     hashtags = models.ManyToManyField(Hashtag, blank=True, related_name='stories')
     view_count = models.PositiveIntegerField(default=0)
     total_donated = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -127,7 +127,7 @@ class Testimonial(models.Model):
     name = models.CharField(max_length=100)
     role = models.CharField(max_length=100, blank=True)  # e.g. "Robust bakery business"
     quote = models.TextField()
-    avatar_url = models.URLField(blank=True)
+    avatar = models.ImageField(upload_to='testimonials/avatars/', blank=True, null=True)
     is_active = models.BooleanField(default=True)
     order = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)

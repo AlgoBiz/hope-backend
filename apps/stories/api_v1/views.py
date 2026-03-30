@@ -114,8 +114,8 @@ class StoryViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        if instance.status not in (Story.Status.DRAFT, Story.Status.REJECTED):
-            return error_response(message="Only draft or rejected stories can be edited.")
+        if instance.status not in (Story.Status.DRAFT, Story.Status.PENDING, Story.Status.REJECTED):
+            return error_response(message="Only draft, pending, or rejected stories can be edited.")
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         if not serializer.is_valid():
             return error_response(errors=serializer.errors, message="Update failed.")
@@ -239,8 +239,8 @@ class AdminStoryViewSet(viewsets.ReadOnlyModelViewSet):
         act = serializer.validated_data['action']
         notes = serializer.validated_data.get('admin_notes', '')
 
-        if story.status != Story.Status.PENDING:
-            return error_response(message="Only pending stories can be approved or rejected.")
+        if story.status not in (Story.Status.PENDING, Story.Status.REJECTED):
+            return error_response(message="Only pending or rejected stories can be approved or rejected.")
 
         story.status = Story.Status.APPROVED if act == 'approve' else Story.Status.REJECTED
         story.admin_notes = notes
