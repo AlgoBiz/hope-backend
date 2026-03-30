@@ -551,7 +551,9 @@ class HashtagViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsAdminUser()]
 
     def list(self, request):
-        return success_response(data=self.get_serializer(self.get_queryset(), many=True).data)
+        queryset = self.filter_queryset(self.get_queryset())
+        return success_response(data=self.get_serializer(queryset, many=True).data)
+
 
 
 # ── Admin Log ViewSet ─────────────────────────────────────────────────────────
