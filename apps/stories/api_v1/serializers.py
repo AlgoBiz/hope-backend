@@ -189,7 +189,7 @@ class TestimonialSerializer(serializers.ModelSerializer):
 class ContentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Content
-        fields = ['id', 'title', 'content', 'created_at', 'updated_at']
+        fields = ['id', 'title',"title2", 'content', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
