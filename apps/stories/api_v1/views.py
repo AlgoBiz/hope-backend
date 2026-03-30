@@ -103,11 +103,16 @@ class StoryViewSet(viewsets.ModelViewSet):
         return success_response(data=self.get_serializer(story).data, message="Story created.", status_code=201)
 
     @swagger_auto_schema(
-        operation_description="Update a story (full). Use multipart/form-data to include files.",
+        operation_description="Update a story (full). Use multipart/form-data to optionally include and remove files.",
         manual_parameters=[
             openapi.Parameter('title', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False),
             openapi.Parameter('content', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False),
             openapi.Parameter('hashtag_names', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False),
+            openapi.Parameter('media_files', openapi.IN_FORM, type=openapi.TYPE_FILE, required=False, description="Add new media files"),
+            openapi.Parameter('media_types', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False, description="Types for new media (image or video)"),
+            openapi.Parameter('document_files', openapi.IN_FORM, type=openapi.TYPE_FILE, required=False, description="Add new document files"),
+            openapi.Parameter('delete_media_ids', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False, description="Comma-separated IDs of media to remove"),
+            openapi.Parameter('delete_document_ids', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False, description="Comma-separated IDs of docs to remove"),
         ],
         consumes=['multipart/form-data'],
     )
@@ -119,8 +124,35 @@ class StoryViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         if not serializer.is_valid():
             return error_response(errors=serializer.errors, message="Update failed.")
-        serializer.save()
-        return success_response(data=serializer.data, message="Story updated.")
+        
+        story = serializer.save()
+
+        # Add new files
+        media_files = request.FILES.getlist('media_files')
+        media_types = request.data.getlist('media_types')
+        document_files = request.FILES.getlist('document_files')
+
+        for i, file in enumerate(media_files):
+            mtype = media_types[i] if i < len(media_types) else 'image'
+            StoryMedia.objects.create(story=story, file=file, type=mtype)
+
+        for file in document_files:
+            StoryDocument.objects.create(story=story, file=file)
+
+        # Delete requested files
+        delete_media_ids = request.data.getlist('delete_media_ids')
+        if delete_media_ids:
+            ids = [i.strip() for item in delete_media_ids for i in item.split(',') if i.strip()]
+            if ids:
+                StoryMedia.objects.filter(story=story, id__in=ids).delete()
+
+        delete_doc_ids = request.data.getlist('delete_document_ids')
+        if delete_doc_ids:
+            ids = [i.strip() for item in delete_doc_ids for i in item.split(',') if i.strip()]
+            if ids:
+                StoryDocument.objects.filter(story=story, id__in=ids).delete()
+
+        return success_response(data=self.get_serializer(story).data, message="Story updated.")
 
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def my(self, request):
