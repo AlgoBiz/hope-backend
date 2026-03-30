@@ -23,8 +23,25 @@ class StoryDocumentInline(admin.TabularInline):
     fields = ['file', 'is_verified']
 
 
+from django import forms
+from apps.stories.service import get_or_create_thread
+
+class StoryAdminForm(forms.ModelForm):
+    new_message = forms.CharField(
+        widget=forms.Textarea(attrs={'rows': 3}),
+        required=False,
+        help_text="Type here to instantly send a message to the author's story thread.",
+        label="Send Message to Author"
+    )
+
+    class Meta:
+        model = Story
+        fields = '__all__'
+
+
 @admin.register(Story)
 class StoryAdmin(admin.ModelAdmin):
+    form = StoryAdminForm
     list_display = ['title', 'user', 'status', 'is_featured', 'view_count', 'total_donated', 'created_at']
     list_filter = ['status', 'is_featured']
     search_fields = ['title', 'content', 'user__email']
@@ -34,9 +51,28 @@ class StoryAdmin(admin.ModelAdmin):
     inlines = [StoryMediaInline, StoryDocumentInline]
     fieldsets = (
         (None, {'fields': ('id', 'user', 'title', 'content', 'status', 'is_featured')}),
+        ('Messaging', {'fields': ('new_message',)}),
         ('Metadata', {'fields': ('hashtags', 'view_count', 'total_donated', 'admin_notes')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
     )
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        msg_text = form.cleaned_data.get('new_message')
+        if msg_text:
+            thread, created = get_or_create_thread(story=obj, user=obj.user, admin=request.user)
+            Message.objects.create(thread=thread, sender=request.user, body=msg_text)
+            thread.save(update_fields=['updated_at'])
+            
+            AdminLog.objects.create(
+                admin=request.user,
+                action=AdminLog.Action.MESSAGE_SENT,
+                target_type='MessageThread',
+                target_id=str(thread.id),
+                target_label=obj.title,
+                notes=msg_text[:200],
+            )
+
 
 
 class MessageInline(admin.TabularInline):

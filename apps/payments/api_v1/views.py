@@ -12,11 +12,31 @@ class AdminPaymentViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Payment.objects.select_related('user', 'story').order_by('-created_at')
 
     def list(self, request, *args, **kwargs):
+        from django.db.models import Sum
         qs = self.filter_queryset(self.get_queryset())
+        
+        paid_qs = qs.filter(status='paid')
+        revenue = paid_qs.aggregate(total=Sum('amount'))['total'] or 0
+        completed_payment_count = paid_qs.count()
+        verification_payment_count = qs.count()
+        
+        stats = {
+            'revenue': float(revenue),
+            'completed_payment': completed_payment_count,
+            'verification_payment_count': verification_payment_count,
+        }
+
         page = self.paginate_queryset(qs)
         if page is not None:
-            return self.get_paginated_response(self.get_serializer(page, many=True).data)
-        return success_response(data=self.get_serializer(qs, many=True).data)
+            response = self.get_paginated_response(self.get_serializer(page, many=True).data)
+            if hasattr(response, 'data') and isinstance(response.data, dict):
+                response.data['stats'] = stats
+            return response
+            
+        return success_response(data={
+            'results': self.get_serializer(qs, many=True).data,
+            'stats': stats
+        })
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
