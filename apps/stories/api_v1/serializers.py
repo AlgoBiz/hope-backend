@@ -127,8 +127,8 @@ class MessageThreadDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MessageThread
-        fields = ['id', 'story_id', 'story_title', 'user_email', 'message_count', 'messages', 'created_at', 'updated_at']
-        read_only_fields = fields
+        fields = ['id', 'story_id', 'story_title', 'user_email', 'message_count', 'is_reply', 'messages', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'story_id', 'story_title', 'user_email', 'message_count', 'is_reply', 'created_at', 'updated_at']
 
     def get_message_count(self, obj):
         return obj.messages.count()
@@ -144,8 +144,8 @@ class MessageThreadListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MessageThread
-        fields = ['id', 'story_id', 'story_title', 'user_email', 'message_count', 'last_message', 'created_at', 'updated_at']
-        read_only_fields = fields
+        fields = ['id', 'story_id', 'story_title', 'user_email', 'message_count', 'last_message', 'is_reply', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'story_id', 'story_title', 'user_email', 'message_count', 'last_message', 'is_reply', 'created_at', 'updated_at']
 
     def get_last_message(self, obj):
         msg = obj.messages.order_by('-created_at').first()

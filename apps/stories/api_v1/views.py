@@ -192,6 +192,54 @@ class StoryViewSet(viewsets.ModelViewSet):
         )
         return success_response(data=self.get_serializer(related, many=True).data)
 
+    @action(detail=True, methods=['get', 'post'], url_path='messages', permission_classes=[IsAuthenticated])
+    def messages(self, request, pk=None):
+        story = get_object_or_404(Story, pk=pk)
+        
+        # Security: Only story owner and admins can access messages
+        if not request.user.is_admin and story.user != request.user:
+            return error_response(message="Permission denied to access this story's messages.", status_code=403)
+            
+        from apps.user_account.models import User
+        admin = User.objects.filter(role='admin').first()
+        thread, created = get_or_create_thread(story=story, user=story.user, admin=admin)
+
+        if request.method == 'GET':
+            # Mark messages received by this user as read
+            thread.messages.exclude(sender=request.user).filter(is_read=False).update(is_read=True)
+            return success_response(data=MessageThreadDetailSerializer(thread).data)
+
+        elif request.method == 'POST':
+            if not request.user.is_admin and not thread.is_reply:
+                return error_response(message="Admin must enable replies before you can respond.", status_code=403)
+
+            body = request.data.get('body', '').strip()
+            if not body:
+                return error_response(message="body is required.", status_code=400)
+            
+            # Allow admins to dynamically toggle the is_reply lock while sending a message
+            if request.user.is_admin and 'is_reply' in request.data:
+                thread.is_reply = str(request.data['is_reply']).lower() == 'true'
+
+            msg = Message.objects.create(thread=thread, sender=request.user, body=body)
+            thread.save(update_fields=['updated_at', 'is_reply'])
+
+            if request.user.is_admin:
+                AdminLog.objects.create(
+                    admin=request.user,
+                    action=AdminLog.Action.MESSAGE_SENT,
+                    target_type='MessageThread',
+                    target_id=str(thread.id),
+                    target_label=story.title,
+                    notes=body[:200],
+                )
+
+            return success_response(
+                data=MessageSerializer(msg).data,
+                message="Reply sent." if not created else "Message sent and thread created.",
+                status_code=201
+            )
+
     @action(detail=True, methods=['post'], url_path='media', parser_classes=[MultiPartParser, FormParser])
     @swagger_auto_schema(
         operation_description="Upload image or video to a story. Use multipart/form-data.",
@@ -305,6 +353,26 @@ class AdminStoryViewSet(viewsets.ReadOnlyModelViewSet):
         return success_response(
             data={'is_featured': story.is_featured},
             message=f"Story {'featured' if story.is_featured else 'unfeatured'}.",
+        )
+
+    @action(detail=True, methods=['post'], url_path='toggle-reply')
+    def toggle_reply(self, request, pk=None):
+        story = self.get_object()
+        
+        from apps.user_account.models import User
+        admin = User.objects.filter(role='admin').first()
+        thread, created = get_or_create_thread(story=story, user=story.user, admin=admin)
+
+        target_state = request.data.get('is_reply')
+        if target_state is not None:
+            thread.is_reply = str(target_state).lower() in ['true', '1', 'yes']
+        else:
+            thread.is_reply = not thread.is_reply
+            
+        thread.save(update_fields=['is_reply'])
+        return success_response(
+            data={"is_reply": thread.is_reply},
+            message=f"User replies {'enabled' if thread.is_reply else 'disabled'}."
         )
 
 
