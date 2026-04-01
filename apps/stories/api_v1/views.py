@@ -394,7 +394,6 @@ class AdminStoryViewSet(viewsets.ReadOnlyModelViewSet):
         thread, created = get_or_create_thread(story=story, user=story.user, admin=request.user)
 
         if request.method == 'GET':
-            # Mark messages received by this admin as read
             thread.messages.exclude(sender=request.user).filter(is_read=False).update(is_read=True)
             return success_response(data=MessageThreadDetailSerializer(thread).data)
 
@@ -403,7 +402,6 @@ class AdminStoryViewSet(viewsets.ReadOnlyModelViewSet):
             if not body:
                 return error_response(message="body is required.", status_code=400)
             
-            # Allow admins to dynamically toggle the is_reply lock while sending a message
             if 'is_reply' in request.data:
                 thread.is_reply = str(request.data['is_reply']).lower() in ['true', '1', 'yes']
 
