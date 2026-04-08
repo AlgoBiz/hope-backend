@@ -333,8 +333,14 @@ class AdminStoryViewSet(viewsets.ReadOnlyModelViewSet):
         act = serializer.validated_data['action']
         notes = serializer.validated_data.get('admin_notes', '')
 
-        if story.status not in (Story.Status.PENDING, Story.Status.REJECTED):
-            return error_response(message="Only pending or rejected stories can be approved or rejected.")
+        if story.status == Story.Status.DRAFT:
+            return error_response(message="Draft stories cannot be approved or rejected.")
+
+        if act == 'approve' and story.status == Story.Status.APPROVED:
+            return error_response(message="Story is already approved.")
+
+        if act == 'reject' and story.status == Story.Status.REJECTED:
+            return error_response(message="Story is already rejected.")
 
         story.status = Story.Status.APPROVED if act == 'approve' else Story.Status.REJECTED
         story.admin_notes = notes

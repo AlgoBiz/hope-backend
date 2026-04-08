@@ -38,6 +38,16 @@ class StoryAdminForm(forms.ModelForm):
         model = Story
         fields = '__all__'
 
+    def clean_status(self):
+        new_status = self.cleaned_data.get('status')
+        if self.instance and self.instance.pk:
+            original_status = Story.objects.filter(pk=self.instance.pk).values_list('status', flat=True).first()
+            if original_status == Story.Status.DRAFT:
+                raise forms.ValidationError("Draft stories cannot be approved or rejected from here.")
+            if original_status == new_status and original_status in (Story.Status.APPROVED, Story.Status.REJECTED):
+                raise forms.ValidationError(f"Story is already '{original_status}'.")
+        return new_status
+
 
 @admin.register(Story)
 class StoryAdmin(admin.ModelAdmin):
@@ -47,7 +57,7 @@ class StoryAdmin(admin.ModelAdmin):
     search_fields = ['title', 'content', 'user__email']
     readonly_fields = ['id', 'view_count', 'total_donated', 'created_at', 'updated_at']
     filter_horizontal = ['hashtags']
-    list_editable = ['status', 'is_featured']
+    list_editable = ['is_featured']
     inlines = [StoryMediaInline, StoryDocumentInline]
     fieldsets = (
         (None, {'fields': ('id', 'user', 'title', 'content', 'status', 'is_featured')}),
@@ -55,6 +65,10 @@ class StoryAdmin(admin.ModelAdmin):
         ('Metadata', {'fields': ('hashtags', 'view_count', 'total_donated', 'admin_notes')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
     )
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly = list(self.readonly_fields)
+        return readonly
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
